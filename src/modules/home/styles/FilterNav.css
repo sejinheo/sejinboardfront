@@ -1,0 +1,83 @@
+.filter-nav {
+  background: white;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.filter-nav-container {
+  max-width: 1376px;
+  margin: 0 auto;
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 2rem;
+}
+
+.filter-tab {
+  background: none;
+  border: none;
+  padding: 0.75rem 0;
+  font-size: 1.125rem;
+  color: #868e96;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.filter-tab:hover {
+  color: #495057;
+}
+
+.filter-tab.active {
+  color: #212529;
+  font-weight: 600;
+}
+
+.filter-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #3b82f6;
+}
+
+.filter-options {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-filter {
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  color: #495057;
+  background: white;
+  cursor: pointer;
+}
+
+.more-options {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #868e96;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.more-options:hover {
+  background-color: #f8f9fa;
+}
+
