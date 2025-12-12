@@ -55,15 +55,27 @@ function WritePage() {
     } catch (err) {
       console.error('글 로딩 실패:', err);
       if (err instanceof Error) {
-        setAlertModal({ 
-          isOpen: true, 
-          message: err.message || '글을 불러오는데 실패했습니다.', 
-          type: 'error',
-          onClose: () => {
-            setAlertModal({ isOpen: false, message: '', type: 'info' });
-            window.location.href = '/';
-          }
-        });
+        if (err.message.includes('403') || err.message.includes('권한') || err.message.includes('Forbidden')) {
+          setAlertModal({ 
+            isOpen: true, 
+            message: '다른 사람의 게시글은 수정, 삭제할 수 없습니다!', 
+            type: 'warning',
+            onClose: () => {
+              setAlertModal({ isOpen: false, message: '', type: 'info' });
+              window.location.href = `/article/${articleId}`;
+            }
+          });
+        } else {
+          setAlertModal({ 
+            isOpen: true, 
+            message: err.message || '글을 불러오는데 실패했습니다.', 
+            type: 'error',
+            onClose: () => {
+              setAlertModal({ isOpen: false, message: '', type: 'info' });
+              window.location.href = '/';
+            }
+          });
+        }
       }
     } finally {
       setLoadingArticle(false);
@@ -439,14 +451,27 @@ function WritePage() {
       if (err instanceof Error) {
         console.error('   에러 메시지:', err.message);
         console.error('   에러 스택:', err.stack);
-        setError(err.message || `글 ${isEditMode ? '수정' : '작성'}에 실패했습니다.`);
+        
+        if (isEditMode && (err.message.includes('403') || err.message.includes('권한') || err.message.includes('Forbidden') || err.message.includes('서버'))) {
+          setAlertModal({
+            isOpen: true,
+            message: '다른 사람의 게시글은 수정, 삭제할 수 없습니다!',
+            type: 'warning',
+            onClose: () => {
+              setAlertModal({ isOpen: false, message: '', type: 'info' });
+              window.location.href = `/article/${articleId}`;
+            }
+          });
+        } else {
+          setError(err.message || `글 ${isEditMode ? '수정' : '작성'}에 실패했습니다.`);
+          
+          if (err.message) {
+            setError(`서버 에러: ${err.message}`);
+          }
+        }
       } else {
         console.error('   알 수 없는 에러:', err);
         setError(`글 ${isEditMode ? '수정' : '작성'}에 실패했습니다.`);
-      }
-      
-      if (err instanceof Error && err.message) {
-        setError(`서버 에러: ${err.message}`);
       }
     } finally {
       setLoading(false);

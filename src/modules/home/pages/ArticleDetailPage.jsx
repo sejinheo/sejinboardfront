@@ -3,11 +3,13 @@ import { useArticle } from '../hooks/useArticle';
 import { tagsApi } from '../../../services/api/tags';
 import { commentsApi } from '../../../services/api/comments';
 import { likesApi } from '../../../services/api/likes';
+import { articlesApi } from '../../../services/api/articles';
 import { tokenUtils } from '../../../utils/token';
 import { parseMarkdown } from '../../../utils/markdown';
 import Header from '../components/Header';
 import CommentItem from '../components/CommentItem';
 import AlertModal from '../../../components/AlertModal';
+import ConfirmModal from '../../../components/ConfirmModal';
 import '../styles/ArticleDetailPage.css';
 
 function ArticleDetailPage() {
@@ -26,6 +28,8 @@ function ArticleDetailPage() {
   const [liked, setLiked] = useState(false);
   const [liking, setLiking] = useState(false);
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const checkLikeStatus = async () => {
@@ -237,6 +241,75 @@ function ArticleDetailPage() {
     }
   };
 
+  const handleDeleteClick = async () => {
+    if (!articleId) return;
+
+    try {
+      const likeCount = await likesApi.getArticleLikeCount(articleId);
+      console.log('💖 게시글 좋아요 수:', likeCount);
+      
+      if (likeCount > 0) {
+        setAlertModal({
+          isOpen: true,
+          message: '게시글에 좋아요가 있습니다! 그 사람을 위해서 삭제하지 말아주세요ㅠㅠ',
+          type: 'warning'
+        });
+        return;
+      }
+      
+      setShowDeleteConfirm(true);
+    } catch (err) {
+      console.error('❌ 좋아요 수 확인 실패:', err);
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!articleId || deleting) return;
+
+    setDeleting(true);
+    try {
+      console.log('🗑️ 게시글 삭제 시작...', articleId);
+      await articlesApi.delete(articleId);
+      console.log('✅ 게시글 삭제 성공');
+      
+      setAlertModal({
+        isOpen: true,
+        message: '게시글이 삭제되었습니다.',
+        type: 'success',
+        onClose: () => {
+          setAlertModal({ isOpen: false, message: '', type: 'info' });
+          window.location.href = '/';
+        }
+      });
+    } catch (err) {
+      console.error('❌ 게시글 삭제 실패:', err);
+      if (err instanceof Error) {
+        console.error('   에러 메시지:', err.message);
+        console.error('   에러 스택:', err.stack);
+        
+        if (err.message.includes('403') || err.message.includes('권한') || err.message.includes('Forbidden') || err.message.includes('서버')) {
+          setAlertModal({ 
+            isOpen: true, 
+            message: '다른 사람의 게시글은 수정, 삭제할 수 없습니다!', 
+            type: 'warning' 
+          });
+        } else {
+          setAlertModal({ 
+            isOpen: true, 
+            message: err.message || '게시글 삭제에 실패했습니다.', 
+            type: 'error' 
+          });
+        }
+      } else {
+        setAlertModal({ isOpen: true, message: '게시글 삭제에 실패했습니다.', type: 'error' });
+      }
+    } finally {
+      setDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -361,20 +434,33 @@ function ArticleDetailPage() {
                     <span className="article-detail-date">{formatDate(article.createdAt)}</span>
                   </div>
                   {tokenUtils.getAccessToken() && (
-                    <button
-                      className="article-edit-button"
-                      onClick={() => {
-
-                        window.location.href = `/edit/${articleId}`;
-                      }}
-                      title="글 수정"
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                      수정
-                    </button>
+                    <div className="article-action-buttons">
+                      <button
+                        className="article-edit-button"
+                        onClick={() => {
+                          window.location.href = `/edit/${articleId}`;
+                        }}
+                        title="글 수정"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                        수정
+                      </button>
+                      <button
+                        className="article-delete-button"
+                        onClick={handleDeleteClick}
+                        title="글 삭제"
+                        disabled={deleting}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        {deleting ? '삭제 중...' : '삭제'}
+                      </button>
+                    </div>
                   )}
                 </div>
                 {tags.length > 0 && (
@@ -450,6 +536,16 @@ function ArticleDetailPage() {
         }}
         message={alertModal.message}
         type={alertModal.type}
+      />
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="게시글 삭제"
+        message="정말 이 게시글을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        cancelText="취소"
+        type="danger"
       />
     </div>
   );
