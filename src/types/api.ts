@@ -9,6 +9,10 @@ export interface ArticleResponse {
   updatedAt: string;
 }
 
+export interface ArticleOwnershipResponse {
+  isOwner: boolean;
+}
+
 export interface ArticleListResponse {
   id: number;
   title: string;
@@ -29,6 +33,11 @@ export interface CommentResponse {
   id: number;
   content: string | null;
   authorName: string;
+  authorEmail?: string;
+  authorId?: number;
+  isMine?: boolean;
+  mine?: boolean;
+  canDelete?: boolean;
   articleId: number;
   parentId: number | null;
   path: string;
@@ -63,6 +72,7 @@ export interface LoginRequest {
 export interface LoginResponse {
   name?: string;
   email?: string;
+  id?: number;
 }
 
 export interface ArticleCreateRequest {

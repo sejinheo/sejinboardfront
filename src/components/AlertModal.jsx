@@ -100,3 +100,4 @@ function AlertModal({ isOpen, onClose, title, message, type = 'info' }) {
 }
 
 export default AlertModal;
+

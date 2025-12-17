@@ -19,3 +19,4 @@ export const likesApi = {
     return apiClient.get<number>(`/api/comments/${commentId}/like/count`);
   },
 };
+

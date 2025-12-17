@@ -7,6 +7,7 @@ import type {
   ArticleUpdateRequest,
   CursorPaginationParams,
   SearchParams,
+  ArticleOwnershipResponse,
 } from '../../types/api';
 
 export const articlesApi = {
@@ -70,5 +71,9 @@ export const articlesApi = {
 
   delete: async (articleId: number): Promise<void> => {
     await apiClient.delete<void>(`/api/articles/${articleId}`);
+  },
+
+  getOwnership: async (articleId: number): Promise<ArticleOwnershipResponse> => {
+    return apiClient.get<ArticleOwnershipResponse>(`/api/articles/${articleId}/ownership`);
   },
 };
