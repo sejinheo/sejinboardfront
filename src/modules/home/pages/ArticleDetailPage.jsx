@@ -30,14 +30,15 @@ function ArticleDetailPage() {
   const [alertModal, setAlertModal] = useState({ isOpen: false, message: '', type: 'info' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
 
   useEffect(() => {
     const checkLikeStatus = async () => {
       if (!articleId) return;
-      
+
       const token = tokenUtils.getAccessToken();
       if (!token) {
-
+        console.log('❌ 토큰 없음, 좋아요 상태 false');
         setLiked(false);
         return;
       }
@@ -45,24 +46,75 @@ function ArticleDetailPage() {
       try {
         const userName = localStorage.getItem('userName');
         if (!userName) {
-
+          console.log('❌ userName 없음, 좋아요 상태 false');
           setLiked(false);
           return;
         }
 
         const likedArticlesKey = `likedArticles_${userName}`;
-        const likedArticles = JSON.parse(localStorage.getItem(likedArticlesKey) || '[]');
-        const isLiked = likedArticles.includes(articleId);
-        console.log('💾 localStorage에서 좋아요 상태 확인:', { articleId, userName, isLiked });
+        const likedArticlesData = localStorage.getItem(likedArticlesKey);
+        console.log('📦 localStorage 원본 데이터:', likedArticlesData);
+
+        const likedArticles = JSON.parse(likedArticlesData || '[]');
+        console.log('📋 파싱된 좋아요 목록:', likedArticles);
+        console.log('🔍 현재 articleId:', articleId, '타입:', typeof articleId);
+
+        const isLiked = likedArticles.includes(articleId) || likedArticles.includes(String(articleId)) || likedArticles.includes(Number(articleId));
+
+        console.log('💾 localStorage에서 좋아요 상태 확인:', {
+          articleId,
+          userName,
+          isLiked,
+          likedArticles,
+          includes: likedArticles.includes(articleId),
+          includesString: likedArticles.includes(String(articleId)),
+          includesNumber: likedArticles.includes(Number(articleId))
+        });
         setLiked(isLiked);
       } catch (err) {
-        console.error('좋아요 상태 확인 실패:', err);
+        console.error('❌ 좋아요 상태 확인 실패:', err);
         setLiked(false);
       }
     };
 
     checkLikeStatus();
   }, [articleId]);
+
+  useEffect(() => {
+    const checkOwnership = async () => {
+      if (!articleId || !article) return;
+
+      const token = tokenUtils.getAccessToken();
+      if (!token) {
+        setIsOwner(false);
+        return;
+      }
+
+      const userName = localStorage.getItem('userName');
+      if (!userName) {
+        console.warn('⚠️ userName이 없습니다.');
+        setIsOwner(false);
+        return;
+      }
+
+      if (article.authorName && article.authorName === userName) {
+        console.log('✅ 작성자 일치 (로컬 확인):', userName);
+        setIsOwner(true);
+        return;
+      }
+
+      try {
+        const ownership = await articlesApi.getOwnership(articleId);
+        console.log('✅ 소유권 API 응답:', ownership);
+        setIsOwner(!!ownership?.isOwner);
+      } catch (err) {
+        console.error('❌ 소유권 API 실패, 로컬 비교로 폴백:', err);
+        setIsOwner(article.authorName === userName);
+      }
+    };
+
+    checkOwnership();
+  }, [articleId, article]);
 
   useEffect(() => {
     if (articleId) {
@@ -140,22 +192,33 @@ function ArticleDetailPage() {
         console.warn('⚠️ 사용자 이름이 없어 좋아요 상태를 저장할 수 없습니다.');
       } else {
         const likedArticlesKey = `likedArticles_${userName}`;
-        const likedArticles = JSON.parse(localStorage.getItem(likedArticlesKey) || '[]');
-        
-        if (newLikedState) {
+        const likedArticlesData = localStorage.getItem(likedArticlesKey) || '[]';
+        console.log('📦 좋아요 토글 전 localStorage:', likedArticlesData);
 
-          if (!likedArticles.includes(articleId)) {
-            likedArticles.push(articleId);
+        const likedArticles = JSON.parse(likedArticlesData);
+        const articleIdNum = Number(articleId);
+
+        console.log('🔍 토글 대상:', { articleId, articleIdNum, type: typeof articleIdNum });
+        console.log('📋 현재 좋아요 목록:', likedArticles);
+
+        if (newLikedState) {
+          const alreadyLiked = likedArticles.some(id => Number(id) === articleIdNum);
+          if (!alreadyLiked) {
+            likedArticles.push(articleIdNum);
+            console.log('➕ 좋아요 추가:', articleIdNum);
+          } else {
+            console.log('⚠️ 이미 좋아요 목록에 있음');
           }
         } else {
-
-          const index = likedArticles.indexOf(articleId);
-          if (index > -1) {
-            likedArticles.splice(index, 1);
-          }
+          const filteredArticles = likedArticles.filter(id => Number(id) !== articleIdNum);
+          console.log('➖ 좋아요 제거:', { before: likedArticles.length, after: filteredArticles.length });
+          likedArticles.length = 0;
+          likedArticles.push(...filteredArticles);
         }
-        localStorage.setItem(likedArticlesKey, JSON.stringify(likedArticles));
-        console.log('💾 좋아요 상태 저장:', { userName, articleId, liked: newLikedState });
+
+        const newData = JSON.stringify(likedArticles);
+        localStorage.setItem(likedArticlesKey, newData);
+        console.log('💾 좋아요 상태 저장 완료:', { userName, articleId: articleIdNum, liked: newLikedState, savedData: newData });
       }
       
       const likeUpdateKey = `like_updated_${articleId}`;
@@ -243,11 +306,60 @@ function ArticleDetailPage() {
 
   const handleDeleteClick = async () => {
     if (!articleId) return;
+    if (!article) return;
+
+    console.log('🗑️ 삭제 버튼 클릭:', {
+      articleId,
+      authorName: article.authorName,
+      isOwner,
+    });
+
+    const token = tokenUtils.getAccessToken();
+    if (!token) {
+      setAlertModal({
+        isOpen: true,
+        message: '로그인이 필요합니다.',
+        type: 'warning',
+        onClose: () => {
+          setAlertModal({ isOpen: false, message: '', type: 'info' });
+          window.location.href = '/login';
+        }
+      });
+      return;
+    }
+
+    const userName = localStorage.getItem('userName');
+    console.log('👤 작성자 확인:', {
+      userName,
+      articleAuthorName: article.authorName,
+      isOwner,
+      match: article.authorName === userName
+    });
+
+    if (!isOwner && (!userName || article.authorName !== userName)) {
+      console.warn('⚠️ 작성자 불일치! 삭제 불가');
+      setAlertModal({
+        isOpen: true,
+        message: `내가 작성한 글이 아닙니다. (작성자: ${article.authorName}, 내 이름: ${userName})`,
+        type: 'warning',
+      });
+      return;
+    }
+
+    console.log('💬 게시글 댓글 수:', comments.length);
+    if (comments.length > 0) {
+      setAlertModal({
+        isOpen: true,
+        message: '이 게시글에 누군가 정성스럽게 댓글을 달았습니다. 삭제하지 말아주세요ㅠㅠ',
+        type: 'warning'
+      });
+      return;
+    }
 
     try {
       const likeCount = await likesApi.getArticleLikeCount(articleId);
       console.log('💖 게시글 좋아요 수:', likeCount);
-      
+
       if (likeCount > 0) {
         setAlertModal({
           isOpen: true,
@@ -256,10 +368,12 @@ function ArticleDetailPage() {
         });
         return;
       }
-      
+
+      console.log('✅ 삭제 가능, 확인 모달 표시');
       setShowDeleteConfirm(true);
     } catch (err) {
       console.error('❌ 좋아요 수 확인 실패:', err);
+      console.log('⚠️ 좋아요 수 확인 실패했지만 삭제 진행');
       setShowDeleteConfirm(true);
     }
   };
@@ -272,7 +386,7 @@ function ArticleDetailPage() {
       console.log('🗑️ 게시글 삭제 시작...', articleId);
       await articlesApi.delete(articleId);
       console.log('✅ 게시글 삭제 성공');
-      
+
       setAlertModal({
         isOpen: true,
         message: '게시글이 삭제되었습니다.',
@@ -287,18 +401,39 @@ function ArticleDetailPage() {
       if (err instanceof Error) {
         console.error('   에러 메시지:', err.message);
         console.error('   에러 스택:', err.stack);
-        
-        if (err.message.includes('403') || err.message.includes('권한') || err.message.includes('Forbidden') || err.message.includes('서버')) {
-          setAlertModal({ 
-            isOpen: true, 
-            message: '다른 사람의 게시글은 수정, 삭제할 수 없습니다!', 
-            type: 'warning' 
+
+        if (err.message.includes('403') || err.message.includes('Forbidden')) {
+          setAlertModal({
+            isOpen: true,
+            message: '다른 사람의 게시글은 삭제할 수 없습니다.',
+            type: 'warning'
+          });
+          setIsOwner(false);
+        } else if (err.message.includes('401') || err.message.includes('인증')) {
+          setAlertModal({
+            isOpen: true,
+            message: '로그인이 필요합니다. 다시 로그인해주세요.',
+            type: 'warning',
+            onClose: () => {
+              setAlertModal({ isOpen: false, message: '', type: 'info' });
+              window.location.href = '/login';
+            }
+          });
+        } else if (err.message.includes('404')) {
+          setAlertModal({
+            isOpen: true,
+            message: '게시글을 찾을 수 없습니다.',
+            type: 'error',
+            onClose: () => {
+              setAlertModal({ isOpen: false, message: '', type: 'info' });
+              window.location.href = '/';
+            }
           });
         } else {
-          setAlertModal({ 
-            isOpen: true, 
-            message: err.message || '게시글 삭제에 실패했습니다.', 
-            type: 'error' 
+          setAlertModal({
+            isOpen: true,
+            message: err.message || '게시글 삭제에 실패했습니다.',
+            type: 'error'
           });
         }
       } else {
@@ -433,35 +568,41 @@ function ArticleDetailPage() {
                     <span className="article-detail-separator">·</span>
                     <span className="article-detail-date">{formatDate(article.createdAt)}</span>
                   </div>
-                  {tokenUtils.getAccessToken() && (
-                    <div className="article-action-buttons">
-                      <button
-                        className="article-edit-button"
-                        onClick={() => {
-                          window.location.href = `/edit/${articleId}`;
-                        }}
-                        title="글 수정"
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                        수정
-                      </button>
-                      <button
-                        className="article-delete-button"
-                        onClick={handleDeleteClick}
-                        title="글 삭제"
-                        disabled={deleting}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                        {deleting ? '삭제 중...' : '삭제'}
-                      </button>
-                    </div>
-                  )}
+                  {(() => {
+                    const token = tokenUtils.getAccessToken();
+                    const userName = localStorage.getItem('userName');
+                    const canEdit = token && (isOwner || (userName && article.authorName === userName));
+
+                    return canEdit ? (
+                      <div className="article-action-buttons">
+                        <button
+                          className="article-edit-button"
+                          onClick={() => {
+                            window.location.href = `/edit/${articleId}`;
+                          }}
+                          title="글 수정"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                          </svg>
+                          수정
+                        </button>
+                        <button
+                          className="article-delete-button"
+                          onClick={handleDeleteClick}
+                          title="글 삭제"
+                          disabled={deleting}
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
+                          {deleting ? '삭제 중...' : '삭제'}
+                        </button>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
                 {tags.length > 0 && (
                   <div className="article-detail-tags">
