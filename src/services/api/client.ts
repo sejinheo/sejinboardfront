@@ -2,7 +2,8 @@ import { tokenUtils } from '../../utils/token';
 import { authApi } from './auth';
 import type { ErrorResponse } from '../../types/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://10.129.59.97:8080';
+const envBase = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = envBase ? envBase.replace(/\/$/, '') : '';
 
 class ApiClient {
   private baseURL: string;
@@ -37,11 +38,11 @@ class ApiClient {
     retry: boolean = true
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     const accessToken = tokenUtils.getAccessToken();
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     const isAuthEndpoint = endpoint.includes('/auth/login') || endpoint.includes('/auth/refresh') || endpoint.includes('/auth/register');
@@ -200,17 +201,17 @@ class ApiClient {
         if (!accessToken && data && typeof data === 'object') {
           console.log('🔍 [LOGIN] Checking response body for token');
           console.log('📋 Response body keys:', Object.keys(data));
-          if (data.accessToken) {
+          if (data.accessToken && typeof data.accessToken === 'string') {
             accessToken = data.accessToken;
-            tokenUtils.setAccessToken(accessToken);
+            tokenUtils.setAccessToken(data.accessToken);
             console.log('✅ Access token saved from body (accessToken field)');
-          } else if (data.token) {
+          } else if (data.token && typeof data.token === 'string') {
             accessToken = data.token;
-            tokenUtils.setAccessToken(accessToken);
+            tokenUtils.setAccessToken(data.token);
             console.log('✅ Access token saved from body (token field)');
-          } else if (data.access_token) {
+          } else if (data.access_token && typeof data.access_token === 'string') {
             accessToken = data.access_token;
-            tokenUtils.setAccessToken(accessToken);
+            tokenUtils.setAccessToken(data.access_token);
             console.log('✅ Access token saved from body (access_token field)');
           } else {
             console.log('📋 Full response body:', JSON.stringify(data, null, 2));
