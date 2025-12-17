@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { articlesApi } from '../../../services/api';
 import type { ArticleListResponse, ArticleCursorResponse } from '../../../types/api';
 
@@ -27,30 +27,22 @@ export function useMyArticles(initialSize: number = 20): UseMyArticlesReturn {
         lastId,
         size: initialSize,
       });
-      
+
       console.log('✅ 내 게시글 목록 로딩 성공:', response);
       console.log('   글 개수:', response.articles.length);
       console.log('   다음 커서:', response.nextCursor);
       console.log('   더 있음:', response.hasNext);
-      
-      if (lastId) {
 
+      if (lastId) {
         setArticles((prev) => {
           const existingIds = new Set(prev.map(a => a.id));
           const newArticles = response.articles.filter(a => !existingIds.has(a.id));
           return [...prev, ...newArticles];
         });
       } else {
-
-        setArticles((prev) => {
-          const existingIds = new Set(prev.map(a => a.id));
-          const newArticles = response.articles.filter(a => !existingIds.has(a.id));
-          return prev.length === 0 ? response.articles : [...prev, ...newArticles].filter((article, index, self) => 
-            index === self.findIndex(a => a.id === article.id)
-          );
-        });
+        setArticles(response.articles);
       }
-      
+
       setNextCursor(response.nextCursor);
       setHasNext(response.hasNext);
     } catch (err) {
@@ -74,6 +66,7 @@ export function useMyArticles(initialSize: number = 20): UseMyArticlesReturn {
   }, [hasNext, loading, nextCursor, loadMyArticles]);
 
   const refresh = useCallback(async () => {
+    setArticles([]);
     setNextCursor(null);
     setHasNext(false);
     await loadMyArticles();

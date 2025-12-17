@@ -17,8 +17,8 @@ function HomePage() {
   const { articles: searchArticles, loading: searchLoading, error: searchError, hasNext: searchHasNext, loadMore: searchLoadMore, search, clear: clearSearch } = useArticleSearch(20);
   const { articles: topLikedArticles, loading: topLikedLoading, error: topLikedError, refresh: refreshTopLiked } = useTopLikedArticles(20);
   const { articles: topViewedArticles, loading: topViewedLoading, error: topViewedError, refresh: refreshTopViewed } = useTopViewedArticles(20);
-  const { articles: myArticles, loading: myArticlesLoading, error: myArticlesError, hasNext: myArticlesHasNext, loadMore: myArticlesLoadMore, refresh: refreshMyArticles } = useMyArticles(20);
 
+  const { articles: myArticles, loading: myArticlesLoading, error: myArticlesError, hasNext: myArticlesHasNext, loadMore: myArticlesLoadMore, refresh: refreshMyArticles } = tokenUtils.getAccessToken() ? useMyArticles(20) : { articles: [], loading: false, error: null, hasNext: false, loadMore: () => Promise.resolve(), refresh: () => Promise.resolve() };
   const { articles: myLikedArticles, loading: myLikedLoading, error: myLikedError, hasNext: myLikedHasNext, loadMore: myLikedLoadMore, refresh: refreshMyLiked } = tokenUtils.getAccessToken() ? useMyLikedArticles(20) : { articles: [], loading: false, error: null, hasNext: false, loadMore: () => Promise.resolve(), refresh: () => Promise.resolve() };
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [showMyArticles, setShowMyArticles] = useState(false);
@@ -184,7 +184,6 @@ function HomePage() {
   const [articleLikes, setArticleLikes] = useState({});
 
   useEffect(() => {
-
     const urlParams = new URLSearchParams(window.location.search);
     const myArticles = urlParams.get('myArticles');
     const shouldShowMyArticles = myArticles === 'true';
@@ -194,19 +193,20 @@ function HomePage() {
       console.log('📝 내 게시글 조회 모드 - API 호출');
       refreshMyArticles();
     }
+  }, []);
 
+  useEffect(() => {
     const userName = localStorage.getItem('userName');
     if (userName) {
       setCurrentUserName(userName);
     } else if (articles.length > 0 && tokenUtils.getAccessToken()) {
-
       const firstArticle = articles[0];
       if (firstArticle && firstArticle.authorName) {
         setCurrentUserName(firstArticle.authorName);
         localStorage.setItem('userName', firstArticle.authorName);
       }
     }
-  }, [articles, refreshMyArticles]);
+  }, [articles]);
 
   useEffect(() => {
     const loadLikes = async () => {
@@ -378,10 +378,10 @@ function HomePage() {
               {articles.length === 0 && !loading ? (
                 <div className="empty-state">
                   <p>
-                    {isSearchMode 
-                      ? '검색 결과가 없습니다.' 
-                      : showMyArticles 
-                        ? '작성한 글이 없습니다.' 
+                    {isSearchMode
+                      ? '검색 결과가 없습니다.'
+                      : showMyArticles
+                        ? '작성한 게시글이 없습니다.'
                         : isFeedMode
                           ? '좋아요한 글이 없습니다.'
                           : '글이 없습니다.'}
