@@ -1,5 +1,4 @@
 import { apiClient } from './client';
-import { tokenUtils } from '../../utils/token';
 import type {
   RegisterRequest,
   LoginRequest,

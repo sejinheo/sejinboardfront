@@ -1,14 +1,14 @@
 import { useState, useCallback } from 'react';
 import { authApi } from '../../../services/api';
 import { tokenUtils } from '../../../utils/token';
-import type { RegisterRequest, LoginRequest } from '../../../types/api';
+import type { RegisterRequest, LoginRequest, LoginResponse } from '../../../types/api';
 
 interface UseAuthReturn {
   isAuthenticated: boolean;
   loading: boolean;
   error: Error | null;
   register: (data: RegisterRequest) => Promise<void>;
-  login: (data: LoginRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<LoginResponse>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
